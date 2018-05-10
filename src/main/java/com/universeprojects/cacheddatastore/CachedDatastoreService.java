@@ -552,7 +552,14 @@ public class CachedDatastoreService
 	{
 		if(currentTransaction!=null) {
 			if (currentTransaction.isActive()) {
-				currentTransaction.rollback();
+				try
+				{
+					currentTransaction.rollback();
+				}
+				catch(IllegalStateException e)
+				{
+					// Ok fine, ignore it then
+				}
 			}
 			currentTransaction = null;
 			clearTransactionEntityTrackers();
