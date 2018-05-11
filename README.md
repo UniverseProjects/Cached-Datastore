@@ -7,5 +7,6 @@ I use the GWT plugin for Eclipse Juno and it installs the Appengine SDK for you 
 It may complain that there is no Appengine SDK defined. Usually that just means you have to remove the Appengine SDK and re-add it (silly eclipse). 
 
 
+
 My appologies in advance for the lack of a proper build process and manager!
 
