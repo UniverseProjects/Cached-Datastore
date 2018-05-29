@@ -1,19 +1,25 @@
 package com.universeprojects.cacheddatastore;
 
 public class SchemaInitializer {
-	static CachedSchema schema = null;
-	
-	public SchemaInitializer() {
-		// TODO Auto-generated constructor stub
+	private static SchemaProvider schemaProvider;
+
+	public static void initializeSchema(final CachedSchema newSchema)
+	{
+		initializeSchemaProvider(new SchemaProvider() {
+			@Override
+			public CachedSchema getSchema() {
+				return newSchema;
+			}
+		});
 	}
 
-	public static void initializeSchema(CachedSchema newSchema)
+	public static void initializeSchemaProvider(final SchemaProvider schemaProvider)
 	{
-		schema = newSchema;
+		SchemaInitializer.schemaProvider = schemaProvider;
 	}
 	
 	public static CachedSchema getSchema()
 	{
-		return schema;
+		return schemaProvider.getSchema();
 	}
 }
