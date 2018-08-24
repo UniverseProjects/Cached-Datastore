@@ -209,6 +209,13 @@ public class QueryHelper
 		return ds.fetchAsList_Keys(kind, f1, limit);
 	}
 
+	public List<Key> getFilteredList_Keys(String kind, int limit, String fieldName, Object equalToValue, String fieldName2, Object equalToValue2)
+	{
+		FilterPredicate f1 = new FilterPredicate(fieldName, FilterOperator.EQUAL, equalToValue);
+		FilterPredicate f2 = new FilterPredicate(fieldName2, FilterOperator.EQUAL, equalToValue2);
+		return ds.fetchAsList_Keys(kind, CompositeFilterOperator.and(f1, f2), limit);
+	}
+
 	public List<Key> getFilteredList_Keys(String kind, int limit)
 	{
 		Query q = new Query(kind);

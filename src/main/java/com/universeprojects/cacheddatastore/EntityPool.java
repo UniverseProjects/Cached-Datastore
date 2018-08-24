@@ -1,6 +1,7 @@
 package com.universeprojects.cacheddatastore;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -129,7 +130,7 @@ public class EntityPool
 		return pool.get(entityKey);
 	}
 	
-	public List<CachedEntity> get(List<Key> entityKeys)
+	public List<CachedEntity> get(Collection<Key> entityKeys)
 	{
 		if (entityKeys==null) return null;
 		
