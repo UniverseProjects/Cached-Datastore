@@ -54,7 +54,7 @@ public class QueryBuilder {
         return (S) value;
     }
 
-    protected class Builder implements MainBuilder, FilterBuilder {
+    public class Builder implements MainBuilder, FilterBuilder {
         private String currentFilterProperty;
 
         @Override

@@ -11,7 +11,7 @@ import java.util.*;
 public abstract class GenericQueryBuilder<R> extends QueryBuilder {
 
     public static final int DEFAULT_FETCH_CHUNK_SIZE = 50;
-    private final GenericBuilder builder = new GenericBuilder();
+    protected final GenericBuilder builder = new GenericBuilder();
 
     protected GenericQueryBuilder(Query query) {
         super(query);
@@ -100,7 +100,7 @@ public abstract class GenericQueryBuilder<R> extends QueryBuilder {
 
     protected abstract R transform(CachedEntity cachedEntity);
 
-    protected class GenericBuilder extends Builder implements GenericMainBuilder<R>, GenericFilterBuilder<R> {
+    public class GenericBuilder extends Builder implements GenericMainBuilder<R>, GenericFilterBuilder<R> {
 
         private CachedDatastoreService cds() {
             return DatastoreHolder.getDatastore();

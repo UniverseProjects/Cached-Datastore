@@ -6,8 +6,6 @@ import com.universeprojects.cacheddatastore.CachedEntity;
 
 public class CachedEntityQueryBuilder extends GenericQueryBuilder<CachedEntity> {
 
-    private final GenericBuilder builder = new GenericBuilder();
-
     private CachedEntityQueryBuilder(Query query) {
         super(query);
     }
