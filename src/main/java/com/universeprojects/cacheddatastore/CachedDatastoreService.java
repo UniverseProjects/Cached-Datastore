@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.ConcurrentModificationException;
 import java.util.Date;
 import java.util.HashMap;
@@ -48,7 +49,8 @@ public class CachedDatastoreService
 	private static ConcurrentHashMap<String,InstanceCacheWrapper> instanceCache = new ConcurrentHashMap<String,InstanceCacheWrapper>();
 	
 	public static boolean singleEntityMode = false; 
-	public static boolean singlePutMode = false; 
+	public static boolean singlePutMode = false;
+	public static int globalConcurrentModificationDelayMS = 0;
 	final public static boolean statsTracking = false;
 	final public static String MC_GETS = "Stats_MC_GETS";
 	final public static String DS_GETS = "Stats_DS_GETS";
@@ -597,6 +599,12 @@ public class CachedDatastoreService
 	
 	public void put(Collection<CachedEntity> entities)
 	{
+		if (entities.contains(null))
+		{
+			entities = new ArrayList<>(entities);
+			entities.removeAll(Collections.singleton(null));
+		}
+
 		if (bulkPutMode)
 		{
 			entitiesToBulkPut.removeAll(entities);
@@ -624,6 +632,7 @@ public class CachedDatastoreService
 			
 			
 			Entity realEntity = entity.getEntity();
+			processConcurrentModificationCheck(realEntity);
 			entitiesToPut.add(realEntity);
 			
 			if (cacheEnabled && isTransactionActive())
@@ -660,6 +669,8 @@ public class CachedDatastoreService
 	
 	public void put(CachedEntity entity)
 	{
+		if (entity==null) return;
+		
 		if (bulkPutMode)
 		{
 			entitiesToBulkPut.remove(entity);
@@ -680,6 +691,9 @@ public class CachedDatastoreService
 		
 		
 		Entity realEntity = entity.getEntity();
+		
+		processConcurrentModificationCheck(realEntity);
+		
 		if (cacheEnabled && isTransactionActive())
 		{
 			// If this is a new entity, then we need to add the entity to the transaction first
@@ -717,6 +731,21 @@ public class CachedDatastoreService
 		entity.unsavedChanges = false;
 	}
 	
+	private void processConcurrentModificationCheck(Entity realEntity)
+	{
+		Date lastModified = (Date)realEntity.getProperty("_modifiedDate");
+		
+		if (globalConcurrentModificationDelayMS>0)
+		{
+			long timePassed = System.currentTimeMillis()-lastModified.getTime();
+			if (timePassed<globalConcurrentModificationDelayMS)
+				throw new ConcurrentModificationException("The "+realEntity.getKey()+" entity was attempting to save after only "+timePassed+"ms. There must be at least a "+globalConcurrentModificationDelayMS+"ms delay between saves of any entity.");
+		}
+			
+		realEntity.setIndexedProperty("_modifiedDate", new Date());
+		
+	}
+
 	/**
 	 * If a transaction is active, the given entity will only be put just before
 	 * the transaction is committed.

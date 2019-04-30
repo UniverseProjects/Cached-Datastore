@@ -64,4 +64,22 @@ public final class DBUtils
     	else
     		throw new RuntimeException("Invalid type "+value.getClass().getSimpleName()+". Expected Text or String.");
     }
+    
+    public static int getEntitySize(CachedEntity entity)
+    {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ObjectOutputStream oos;
+		try
+		{
+			oos = new ObjectOutputStream( baos );
+			oos.writeObject( entity.getEntity() );
+			oos.close();
+		}
+		catch (IOException e)
+		{
+			return -1;
+		}
+        return Base64.encodeBase64String(baos.toByteArray()).length();    	
+    }
+    
 }
