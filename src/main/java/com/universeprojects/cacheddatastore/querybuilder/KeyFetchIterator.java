@@ -14,6 +14,7 @@ public abstract class KeyFetchIterator<T> implements QueryResultIterator<T> {
 
     private final QueryResultIterator<Entity> rawIterator;
     private final int fetchChunksize;
+    //TODO make this work properly with cursor etc.
     private final Deque<CachedEntity> fetchedEntities = new LinkedList<>();
 
     public KeyFetchIterator(QueryResultIterator<Entity> rawIterator, int fetchChunkSize) {
@@ -28,21 +29,11 @@ public abstract class KeyFetchIterator<T> implements QueryResultIterator<T> {
 
     @Override
     public T next() {
-        if (!hasNext()) {
+        final Entity entity = rawIterator.next();
+        if(entity == null) {
             return null;
         }
-        if (fetchedEntities.isEmpty()) {
-            List<Key> keysToFetch = new ArrayList<>();
-            for (int i = 0; i < fetchChunksize; i++) {
-                if (!rawIterator.hasNext()) {
-                    break;
-                }
-                final Entity next = rawIterator.next();
-                keysToFetch.add(next.getKey());
-            }
-            fetchedEntities.addAll(cds().get(keysToFetch));
-        }
-        final CachedEntity cachedEntity = fetchedEntities.removeFirst();
+        final CachedEntity cachedEntity = cds().getIfExists(entity.getKey());
         return transform(cachedEntity);
     }
 
