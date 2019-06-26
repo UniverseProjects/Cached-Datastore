@@ -10,9 +10,11 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.EntityNotFoundException;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
+import com.google.appengine.api.datastore.PropertyContainer;
+import com.google.appengine.api.datastore.PropertyContainerWrapper;
 import com.google.appengine.api.datastore.Text;
 
-public class CachedEntity implements Cloneable,Serializable {
+public class CachedEntity extends PropertyContainerWrapper implements Cloneable,Serializable {
 	private static Logger log = Logger.getLogger(CachedEntity.class.toString());
 	
 	
@@ -383,5 +385,11 @@ public class CachedEntity implements Cloneable,Serializable {
 	public Map<String,Object> getAttributes()
 	{
 		return attributes;
+	}
+
+	@Override
+	public Map<String, Object> getPropertyMap()
+	{
+		return getProperties();
 	}
 }

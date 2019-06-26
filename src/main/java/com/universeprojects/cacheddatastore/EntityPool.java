@@ -40,7 +40,12 @@ public class EntityPool
 	 */
 	public void addToQueue(Object...keyList)
 	{
-		if (keyList==null) return;
+		doAddToQueue(keyList);
+	}
+	
+	private void doAddToQueue(Object...keyList)
+	{
+		if (keyList==null || keyList.length==0) return;
 		
 		List<Key> keysToLoad = new ArrayList<Key>();
 		for(Object o:keyList)
@@ -61,14 +66,18 @@ public class EntityPool
 			else if (o instanceof Key)
 			{
 				if (pool.containsKey(o)==false && (queue==null || queue.contains(o)==false))
+				{
+					if (((Key)o).isComplete()==false)
+						throw new IllegalArgumentException("Key is incomplete");
 					keysToLoad.add((Key)o);
+				}
 			}
 			else if (o instanceof Iterable)
 			{
 				Iterable<?> list = (Iterable<?>)o;
 				for(Object obj:list)
 				{
-					addToQueue(obj);
+					doAddToQueue(obj);
 				}
 			}
 			else
@@ -122,23 +131,23 @@ public class EntityPool
 		return entities;
 	}
 	
+	public List<CachedEntity> get(Collection entityKeys)
+	{
+		if (entityKeys==null) return null;
+		
+		List<CachedEntity> result = new ArrayList<CachedEntity>();
+		for(Object key:entityKeys)
+			result.add(get(key));
+		
+		return result;
+	}
+	
 	public CachedEntity get(Object entityKey)
 	{
 		if (entityKey==null) return null;
 		if (pool.containsKey(entityKey)==false)
 			throw new IllegalArgumentException("The entityKey '"+entityKey+"' was not preloaded into the EntityPool. All entities should be bulk loaded into a pool before they can be accessed.");
 		return pool.get(entityKey);
-	}
-	
-	public List<CachedEntity> get(Collection<Key> entityKeys)
-	{
-		if (entityKeys==null) return null;
-		
-		List<CachedEntity> result = new ArrayList<CachedEntity>();
-		for(Key key:entityKeys)
-			result.add(get(key));
-		
-		return result;
 	}
 	
 	/**
