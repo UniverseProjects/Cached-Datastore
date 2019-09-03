@@ -1,15 +1,18 @@
 package com.universeprojects.cacheddatastore;
 
 import com.google.appengine.api.memcache.MemcacheService;
-import com.universeprojects.cacheddatastore.CachedDatastoreService;
 
 public class DatastoreHolder {
     public static CachedDatastoreService getDatastore() {
-        return datastore.get();
+        return DatastoreHolder.datastore.get();
     }
 
     public static MemcacheService getMemCache() {
         return getDatastore().getMC();
+    }
+
+    public static void reset() {
+        DatastoreHolder.datastore.remove();
     }
 
     private static ThreadLocal<CachedDatastoreService> datastore = new ThreadLocal<CachedDatastoreService>() {
