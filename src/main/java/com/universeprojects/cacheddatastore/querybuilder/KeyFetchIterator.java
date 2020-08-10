@@ -33,21 +33,25 @@ public abstract class KeyFetchIterator<T> implements QueryResultIterator<T> {
             return null;
         }
         if (fetchedEntities.isEmpty()) {
-            cursors.clear(); //Should not be necessary
-            List<Key> keysToFetch = new ArrayList<>();
-            for (int i = 0; i < fetchChunkSize; i++) {
-                if (!rawIterator.hasNext()) {
-                    break;
-                }
-                cursors.add(rawIterator.getCursor());
-                final Entity next = rawIterator.next();
-                keysToFetch.add(next.getKey());
-            }
-            fetchedEntities.addAll(cds().get(keysToFetch));
+            executeBulkFetch();
         }
         cursors.removeFirst();
         final CachedEntity cachedEntity = fetchedEntities.removeFirst();
         return transform(cachedEntity);
+    }
+
+    private void executeBulkFetch() {
+        cursors.clear(); //Should not be necessary
+        List<Key> keysToFetch = new ArrayList<>();
+        for (int i = 0; i < fetchChunkSize; i++) {
+            if (!rawIterator.hasNext()) {
+                break;
+            }
+            cursors.add(rawIterator.getCursor());
+            final Entity next = rawIterator.next();
+            keysToFetch.add(next.getKey());
+        }
+        fetchedEntities.addAll(cds().get(keysToFetch));
     }
 
     @Override
