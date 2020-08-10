@@ -24,12 +24,12 @@ public abstract class KeyFetchIterator<T> implements QueryResultIterator<T> {
 
     @Override
     public boolean hasNext() {
-        return rawIterator.hasNext();
+        return !fetchedEntities.isEmpty() || rawIterator.hasNext();
     }
 
     @Override
     public T next() {
-        if (fetchedEntities.isEmpty() && !hasNext()) {
+        if (!hasNext()) {
             return null;
         }
         if (fetchedEntities.isEmpty()) {
