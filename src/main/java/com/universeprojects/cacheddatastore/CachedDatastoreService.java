@@ -622,7 +622,8 @@ public class CachedDatastoreService
 		}		
 
 		// Go through looking for keys that are incomplete and handle them specially
-		List<Entity> entitiesToPut = new ArrayList<Entity>();
+		List<Entity> entitiesToPut = new ArrayList<>();
+		List<Key> keysToPut = new ArrayList<>();
 		for(CachedEntity entity:entities)
 		{
 			// Notify of the put
@@ -634,6 +635,7 @@ public class CachedDatastoreService
 			Entity realEntity = entity.getEntity();
 			processConcurrentModificationCheck(realEntity);
 			entitiesToPut.add(realEntity);
+			keysToPut.add(realEntity.getKey());
 			
 			if (cacheEnabled && isTransactionActive())
 			{
@@ -653,8 +655,17 @@ public class CachedDatastoreService
 			
 			entity.unsavedChanges = false;
 		}
-		
-		db.put(entitiesToPut);
+
+		try {
+			db.put(entitiesToPut);
+		} catch (Throwable ex) {
+			try {
+				deleteEntitiesFromMemcache(keysToPut);
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting entities from cache", ex2);
+			}
+			throw ex;
+		}
 		
 		
 		if (cacheEnabled && isTransactionActive()==false)
@@ -693,29 +704,34 @@ public class CachedDatastoreService
 		Entity realEntity = entity.getEntity();
 		
 		processConcurrentModificationCheck(realEntity);
-		
-		if (cacheEnabled && isTransactionActive())
-		{
-			// If this is a new entity, then we need to add the entity to the transaction first
-			if (entity.getKey().isComplete()==false || entity.newEntity)
-			{
+
+		try {
+
+			if (cacheEnabled && isTransactionActive()) {
+				// If this is a new entity, then we need to add the entity to the transaction first
+				if (entity.getKey().isComplete() == false || entity.newEntity) {
+					db.put(realEntity);
+					entity.newEntity = false;
+					addEntityToTransaction(realEntity.getKey());
+					markEntityChanged(realEntity);
+				} else {
+					markEntityChanged(realEntity);
+					db.put(realEntity);
+					entity.newEntity = false;
+				}
+
+			} else {
 				db.put(realEntity);
 				entity.newEntity = false;
-				addEntityToTransaction(realEntity.getKey());
-				markEntityChanged(realEntity);
 			}
-			else
-			{
-				markEntityChanged(realEntity);
-				db.put(realEntity);
-				entity.newEntity = false;
+
+		} catch (Throwable ex) {
+			try {
+				deleteEntityFromMemcache(realEntity.getKey());
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting entities from cache", ex2);
 			}
-				
-		}
-		else
-		{
-			db.put(realEntity);
-			entity.newEntity = false;
+			throw ex;
 		}
 
 		
