@@ -12,6 +12,7 @@ import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.Query.CompositeFilterOperator;
 import com.google.appengine.api.datastore.Query.Filter;
+import com.google.appengine.api.memcache.Expiration;
 
 public class ShardedCounterService
 {
@@ -138,6 +139,17 @@ public class ShardedCounterService
 			}
 			ds.put(shard);
 	
+			// If we haven't updated the entity's value cache in a while (based on the presence of a limited-time memcache entry) we're going to
+			// update it now
+			String valueCacheMCBlockerKey = "sharded-counter-cache-update-blocker-" + entityKey + ":" + fieldName;
+			if (ds.getMC().contains(valueCacheMCBlockerKey) == false) {
+				ds.getMC().put(valueCacheMCBlockerKey, true, Expiration.byDeltaSeconds(5));
+				
+				CachedEntity entity = ds.getIfExists(entityKey);
+				entity.setProperty(fieldName, readCounter(entityKey, fieldName) + increment);
+				ds.put(entity);
+			}
+			
 			try
 			{
 				ds.commit();

@@ -5,7 +5,6 @@ import java.util.List;
 import com.google.appengine.api.datastore.Cursor;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.Query;
-import com.google.appengine.api.datastore.Query.CompositeFilter;
 import com.google.appengine.api.datastore.Query.CompositeFilterOperator;
 import com.google.appengine.api.datastore.Query.Filter;
 import com.google.appengine.api.datastore.Query.FilterOperator;
@@ -301,6 +300,11 @@ public class QueryHelper
 		Query q = new Query();
 		q.setAncestor(parent);
 		return ds.fetchAsList(q, limit);
+	}
+
+	public List<Key> getFilteredList_Keys(String kind, String fieldName1, Object fieldValue1, String fieldName2, Object fieldValue2)
+	{
+		return getFilteredList_Keys(kind, fieldName1, FilterOperator.EQUAL, fieldValue1, fieldName2, FilterOperator.EQUAL, fieldValue2);
 	}
 
 
