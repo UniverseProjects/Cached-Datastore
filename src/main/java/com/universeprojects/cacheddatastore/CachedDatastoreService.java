@@ -308,7 +308,7 @@ public class CachedDatastoreService
 	
 	private void putEntityToMemcache(Entity entity)
 	{
-		mc.put(mcPrefix+entity.getKey().toString(), entity);		
+		putToMemcache(mcPrefix+entity.getKey().toString(), entity);
 	}
 	
 	protected void putEntitiesToMemcache(Iterable<Entity> entities)
@@ -316,7 +316,73 @@ public class CachedDatastoreService
 		Map<String, Entity> map = new HashMap<>();
 		for(Entity entity:entities)
 			map.put(mcPrefix+entity.getKey().toString(), entity);
-		mc.putAll(map);
+		putToMemcache(map);
+	}
+
+	private void putToMemcache(Object key, Object value) {
+		try {
+			mc.put(key, value);
+		} catch (Throwable ex) {
+			try {
+				mc.delete(key);
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting memcache entry", ex2);
+			}
+			throw ex;
+		}
+	}
+
+	private void putToMemcache(Object key, Object value, Expiration expiration) {
+		try {
+			mc.put(key, value, expiration);
+		} catch (Throwable ex) {
+			try {
+				mc.delete(key);
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting memcache entry", ex2);
+			}
+			throw ex;
+		}
+	}
+
+	@SuppressWarnings("SameParameterValue")
+	private boolean putToMemcache(Object key, Object value, Expiration expiration, SetPolicy setPolicy) {
+		try {
+			return mc.put(key, value, expiration, setPolicy);
+		} catch (Throwable ex) {
+			try {
+				mc.delete(key);
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting memcache entry", ex2);
+			}
+			throw ex;
+		}
+	}
+
+	private boolean putToMemcacheIfUntouched(Object key, IdentifiableValue identifiableValue, Object valse) {
+		try {
+			return mc.putIfUntouched(key, identifiableValue, valse);
+		} catch (Throwable ex) {
+			try {
+				mc.delete(key);
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting memcache entry", ex2);
+			}
+			throw ex;
+		}
+	}
+
+	private void putToMemcache(Map<?, ?> map) {
+		try {
+			mc.putAll(map);
+		} catch (Throwable ex) {
+			try {
+				mc.deleteAll(map.keySet());
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting memcache entry", ex2);
+			}
+			throw ex;
+		}
 	}
 	
 	private void deleteEntityFromMemcache(Key entityKey)
@@ -620,7 +686,8 @@ public class CachedDatastoreService
 		}		
 
 		// Go through looking for keys that are incomplete and handle them specially
-		List<Entity> entitiesToPut = new ArrayList<Entity>();
+		List<Entity> entitiesToPut = new ArrayList<>();
+		List<Key> keysToPut = new ArrayList<>();
 		for(CachedEntity entity:entities)
 		{
 			// Notify of the put
@@ -632,6 +699,7 @@ public class CachedDatastoreService
 			Entity realEntity = entity.getEntity();
 			processConcurrentModificationCheck(realEntity);
 			entitiesToPut.add(realEntity);
+			keysToPut.add(realEntity.getKey());
 			
 			if (cacheEnabled && isTransactionActive())
 			{
@@ -651,8 +719,17 @@ public class CachedDatastoreService
 			
 			entity.unsavedChanges = false;
 		}
-		
-		db.put(entitiesToPut);
+
+		try {
+			db.put(entitiesToPut);
+		} catch (Throwable ex) {
+			try {
+				deleteEntitiesFromMemcache(keysToPut);
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting entities from cache", ex2);
+			}
+			throw ex;
+		}
 		
 		
 		if (cacheEnabled && isTransactionActive()==false)
@@ -691,29 +768,34 @@ public class CachedDatastoreService
 		Entity realEntity = entity.getEntity();
 		
 		processConcurrentModificationCheck(realEntity);
-		
-		if (cacheEnabled && isTransactionActive())
-		{
-			// If this is a new entity, then we need to add the entity to the transaction first
-			if (entity.getKey().isComplete()==false || entity.newEntity)
-			{
+
+		try {
+
+			if (cacheEnabled && isTransactionActive()) {
+				// If this is a new entity, then we need to add the entity to the transaction first
+				if (entity.getKey().isComplete() == false || entity.newEntity) {
+					db.put(realEntity);
+					entity.newEntity = false;
+					addEntityToTransaction(realEntity.getKey());
+					markEntityChanged(realEntity);
+				} else {
+					markEntityChanged(realEntity);
+					db.put(realEntity);
+					entity.newEntity = false;
+				}
+
+			} else {
 				db.put(realEntity);
 				entity.newEntity = false;
-				addEntityToTransaction(realEntity.getKey());
-				markEntityChanged(realEntity);
 			}
-			else
-			{
-				markEntityChanged(realEntity);
-				db.put(realEntity);
-				entity.newEntity = false;
+
+		} catch (Throwable ex) {
+			try {
+				deleteEntityFromMemcache(realEntity.getKey());
+			} catch (Throwable ex2) {
+				log.log(Level.SEVERE, "Error when deleting entities from cache", ex2);
 			}
-				
-		}
-		else
-		{
-			db.put(realEntity);
-			entity.newEntity = false;
+			throw ex;
 		}
 
 		
@@ -877,7 +959,7 @@ public class CachedDatastoreService
 				result = CachedEntity.wrap(db.get(entityKey));
 				if(result != null)
 				{
-					mc.put(mcPrefix+entityKey.toString(), result.getEntity());
+					putToMemcache(mcPrefix+entityKey.toString(), result.getEntity());
 				}
 				if (statsTracking)
 					incrementStat(DS_GETS);		// For statistics tracking of the cache's success
@@ -894,7 +976,7 @@ public class CachedDatastoreService
 				incrementStat(DS_GETS);		// For statistics tracking of the cache's success
 			
 			result = CachedEntity.wrap(db.get(entityKey));
-			mc.put(mcPrefix+entityKey.toString(), result.getEntity());
+			putToMemcache(mcPrefix+entityKey.toString(), result.getEntity());
 			
 			// If the transaction is active, we want to include this entity in the list of transactionally fetched entities
 			addEntityToTransaction(entityKey);
@@ -1237,7 +1319,7 @@ public class CachedDatastoreService
 //		
 //		if (result!=null && q.isKeysOnly()==false)
 //		{
-//			mc.put(mcPrefix+result.getKey().toString(), result);
+//			putToMemcache(mcPrefix+result.getKey().toString(), result);
 //		}
 //		
 //		incrementStat(QUERIES);		
@@ -1545,12 +1627,12 @@ public class CachedDatastoreService
 		{
 			if (initialValue==null)
 				initialValue=0l;
-			mc.put(statKey, initialValue+amount, Expiration.byDeltaSeconds(expirySeconds));
+			putToMemcache(statKey, initialValue+amount, Expiration.byDeltaSeconds(expirySeconds));
 			return initialValue+amount;
 		}
 		else
 		{
-			mc.put(statKey,previousValue+amount, Expiration.byDeltaSeconds(expirySeconds));
+			putToMemcache(statKey,previousValue+amount, Expiration.byDeltaSeconds(expirySeconds));
 			return previousValue+amount;
 		}
 	}
@@ -1576,17 +1658,17 @@ public class CachedDatastoreService
 	
 	public void setStatDouble(String statKey, double value)
 	{
-		mc.put(statKey, value);
+		putToMemcache(statKey, value);
 	}
 	
 	public void setStat(String statKey, Long value)
 	{
-		mc.put(statKey, value);
+		putToMemcache(statKey, value);
 	}
 	
 	public void setStat(String statKey, Long value, int expirySeconds)
 	{
-		mc.put(statKey, value, Expiration.byDeltaSeconds(expirySeconds));
+		putToMemcache(statKey, value, Expiration.byDeltaSeconds(expirySeconds));
 	}
 	
 	public Long getStat(String statKey)
@@ -1600,16 +1682,16 @@ public class CachedDatastoreService
 	}
 
 	public void clearStats() {
-		mc.put(MC_GETS, 0l);
-		mc.put(DS_GETS, 0l);
-		mc.put(QUERIES, 0l);
-		mc.put(QUERY_ENTITIES, 0l);
-		mc.put(MC_QUERY_ENTITIES, 0l);
-		mc.put(MC_QUERIES, 0l);
+		putToMemcache(MC_GETS, 0l);
+		putToMemcache(DS_GETS, 0l);
+		putToMemcache(QUERIES, 0l);
+		putToMemcache(QUERY_ENTITIES, 0l);
+		putToMemcache(MC_QUERY_ENTITIES, 0l);
+		putToMemcache(MC_QUERIES, 0l);
 		
-		mc.put(QUERYKEYCACHE_QUERIES, 0l);
-		mc.put(QUERYKEYCACHE_DB_ENTITIES, 0l);
-		mc.put(QUERYKEYCACHE_MC_ENTITIES, 0l);
+		putToMemcache(QUERYKEYCACHE_QUERIES, 0l);
+		putToMemcache(QUERYKEYCACHE_DB_ENTITIES, 0l);
+		putToMemcache(QUERYKEYCACHE_MC_ENTITIES, 0l);
 		
 		
 		
@@ -1620,7 +1702,7 @@ public class CachedDatastoreService
 			List<String> allKinds = schema.getKinds();
 			for(String kind:allKinds)
 			{
-				mc.put(prefix+kind, 0l);
+				putToMemcache(prefix+kind, 0l);
 			}
 		}
 		
@@ -1832,7 +1914,7 @@ public class CachedDatastoreService
 		Long counter = (Long)mc.get("actionLimiter-"+actionName);
 		if (counter==null)
 		{
-			mc.put("actionLimiter-"+actionName, maximumActions, Expiration.byDeltaSeconds(periodInSeconds));
+			putToMemcache("actionLimiter-"+actionName, maximumActions, Expiration.byDeltaSeconds(periodInSeconds));
 			counter = maximumActions;
 		}
 		else
@@ -1845,7 +1927,7 @@ public class CachedDatastoreService
 		else
 		{
 			if (penaltyDuration!=null)
-				mc.put("actionLimiter-"+actionName, 0L, Expiration.byDeltaSeconds(penaltyDuration));
+				putToMemcache("actionLimiter-"+actionName, 0L, Expiration.byDeltaSeconds(penaltyDuration));
 			
 			return true;
 		}
@@ -1874,9 +1956,9 @@ public class CachedDatastoreService
 		MemcacheService mc = getMC();
 		
 		SaferMCValueWrapper wrappedValue = new SaferMCValueWrapper(value);
-		mc.put(key, wrappedValue);
+		putToMemcache(key, wrappedValue);
 		for(int i = 0; i<backups; i++)
-			mc.put(key+"-backup#"+i, wrappedValue);
+			putToMemcache(key+"-backup#"+i, wrappedValue);
 	}
 	
 	public Object getSaferMemcacheValue(String key, int backups)
@@ -2073,12 +2155,12 @@ public class CachedDatastoreService
 			
 			if (identifiable==null)
 			{
-				boolean success = mc.put(key, set, null, SetPolicy.ADD_ONLY_IF_NOT_PRESENT);
+				boolean success = putToMemcache(key, set, null, SetPolicy.ADD_ONLY_IF_NOT_PRESENT);
 				if (success) return true;
 			}
 			else
 			{
-				boolean success = mc.putIfUntouched(key, identifiable, set);
+				boolean success = putToMemcacheIfUntouched(key, identifiable, set);
 				if (success) return true;
 			}
 		}
@@ -2113,7 +2195,7 @@ public class CachedDatastoreService
 			
 			set.remove(objectToDelete);
 			
-			boolean success = mc.putIfUntouched(key, identifiable, set);
+			boolean success = putToMemcacheIfUntouched(key, identifiable, set);
 			if (success) return true;
 		}
 	}
@@ -2197,7 +2279,7 @@ public class CachedDatastoreService
 
 			if (identifiable==null)
 			{
-				boolean success = mc.put(key, true, Expiration.byDeltaSeconds(timeoutSeconds), SetPolicy.ADD_ONLY_IF_NOT_PRESENT);
+				boolean success = putToMemcache(key, true, Expiration.byDeltaSeconds(timeoutSeconds), SetPolicy.ADD_ONLY_IF_NOT_PRESENT);
 				if (success) return true;
 			}
 		}

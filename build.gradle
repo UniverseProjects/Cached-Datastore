@@ -53,13 +53,17 @@ publishing {
         }
     }
     publications {
+        //noinspection GroovyAssignabilityCheck
         mavenJava(MavenPublication) {
+            //noinspection GroovyAssignabilityCheck
             groupId 'com.universeprojects'
+            //noinspection GroovyAssignabilityCheck
             artifactId 'cached-datastore'
             //noinspection GroovyAssignabilityCheck
-            version '1.0-SNAPSHOT'
+            version '1.1-SNAPSHOT'
 
             from components.java
+            //noinspection GroovyAssignabilityCheck
             artifact sourceJar
         }
     }

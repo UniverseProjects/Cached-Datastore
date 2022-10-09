@@ -13,28 +13,45 @@ import java.util.List;
 public abstract class KeyFetchIterator<T> implements QueryResultIterator<T> {
 
     private final QueryResultIterator<Entity> rawIterator;
-    private final int fetchChunksize;
-    //TODO make this work properly with cursor etc.
+    private final int fetchChunkSize;
     private final Deque<CachedEntity> fetchedEntities = new LinkedList<>();
+    private final Deque<Cursor> cursors = new LinkedList<>();
 
     public KeyFetchIterator(QueryResultIterator<Entity> rawIterator, int fetchChunkSize) {
         this.rawIterator = rawIterator;
-        this.fetchChunksize = fetchChunkSize;
+        this.fetchChunkSize = fetchChunkSize;
     }
 
     @Override
     public boolean hasNext() {
-        return rawIterator.hasNext();
+        return !fetchedEntities.isEmpty() || rawIterator.hasNext();
     }
 
     @Override
     public T next() {
-        final Entity entity = rawIterator.next();
-        if(entity == null) {
+        if (!hasNext()) {
             return null;
         }
-        final CachedEntity cachedEntity = cds().getIfExists(entity.getKey());
+        if (fetchedEntities.isEmpty()) {
+            executeBulkFetch();
+        }
+        cursors.removeFirst();
+        final CachedEntity cachedEntity = fetchedEntities.removeFirst();
         return transform(cachedEntity);
+    }
+
+    private void executeBulkFetch() {
+        cursors.clear(); //Should not be necessary
+        List<Key> keysToFetch = new ArrayList<>();
+        for (int i = 0; i < fetchChunkSize; i++) {
+            if (!rawIterator.hasNext()) {
+                break;
+            }
+            cursors.add(rawIterator.getCursor());
+            final Entity next = rawIterator.next();
+            keysToFetch.add(next.getKey());
+        }
+        fetchedEntities.addAll(cds().get(keysToFetch));
     }
 
     @Override
@@ -44,7 +61,11 @@ public abstract class KeyFetchIterator<T> implements QueryResultIterator<T> {
 
     @Override
     public Cursor getCursor() {
-        return rawIterator.getCursor();
+        if(cursors.isEmpty()) {
+            return rawIterator.getCursor();
+        } else {
+            return cursors.getFirst();
+        }
     }
 
     private CachedDatastoreService cds() {

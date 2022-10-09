@@ -10,7 +10,7 @@ import java.util.*;
 @SuppressWarnings({"unused", "UnusedReturnValue"})
 public abstract class GenericQueryBuilder<R> extends QueryBuilder {
 
-    public static final int DEFAULT_FETCH_CHUNK_SIZE = 50;
+    public static final int DEFAULT_FETCH_CHUNK_SIZE = 500;
     protected final GenericBuilder builder = new GenericBuilder();
 
     protected GenericQueryBuilder(Query query) {
@@ -115,6 +115,9 @@ public abstract class GenericQueryBuilder<R> extends QueryBuilder {
         }
 
         private KeyFetchIterator<R> generateIterator(int fetchChunkSize) {
+            if(fetchOptions.getChunkSize() == null) {
+                fetchOptions.chunkSize(fetchChunkSize);
+            }
             final Query query = buildQuery();
             query.setKeysOnly();
             final QueryResultIterator<Entity> iterator = ds().prepare(query).asQueryResultIterator(buildFetchOptions());

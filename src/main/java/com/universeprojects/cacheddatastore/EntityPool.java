@@ -47,7 +47,7 @@ public class EntityPool
 	{
 		if (keyList==null || keyList.length==0) return;
 		
-		List<Key> keysToLoad = new ArrayList<Key>();
+		List<Key> keysToLoad = new ArrayList<>();
 		for(Object o:keyList)
 		{
 			if (o==null)
@@ -87,7 +87,7 @@ public class EntityPool
 		if (keysToLoad.isEmpty()==false)
 		{
 			if (queue==null)
-				queue = new HashSet<Key>();
+				queue = new HashSet<>();
 			
 			queue.addAll(keysToLoad);
 		}
@@ -101,13 +101,13 @@ public class EntityPool
 	 * If any keys are waiting in the queue, they will be loaded as well. You can call loadEntities() (with no args)
 	 * to simply load entities stored in the queue.
 	 * 
-	 * @param keylist This must be a series of either Iterable<Key> or Key type objects.
+	 * @param keyList This must be a series of either Iterable<Key> or Key type objects.
 	 * @return The 'list' of entities that were added to the pool (doesn't include entities that were already in the pool).
 	 */
 	public Map<Key, CachedEntity> loadEntities(Object...keyList)
 	{
 		// Turn the given keyList mixed list into a list of keys we need to load (excluding keys that are already loaded into the pool)...
-		List<Key> keysToLoad = new ArrayList<Key>();
+		List<Key> keysToLoad = new ArrayList<>();
 		if (keyList!=null)
 		{
 			addToQueue(keyList);
@@ -135,11 +135,15 @@ public class EntityPool
 	{
 		if (entityKeys==null) return null;
 		
-		List<CachedEntity> result = new ArrayList<CachedEntity>();
+		List<CachedEntity> result = new ArrayList<>();
 		for(Object key:entityKeys)
 			result.add(get(key));
 		
 		return result;
+	}
+
+	public int size() {
+		return pool.size();
 	}
 	
 	public CachedEntity get(Object entityKey)
