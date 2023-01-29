@@ -222,7 +222,9 @@ public class CachedEntity extends PropertyContainerWrapper implements Cloneable,
 	
 	public String getUrlSafeKey()
 	{
-		return KeyFactory.keyToString(entity.getKey());
+		return KeyFactory.createKeyString(entity.getKey().getParent(), 
+				entity.getKey().getKind(), 
+				entity.getKey().getId());
 	}
 	
 	public String getKind()
