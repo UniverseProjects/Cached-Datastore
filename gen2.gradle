@@ -1,0 +1,126 @@
+////
+////apply plugin: 'war'
+////
+////dependencies {
+//////    compile 'commons-codec:commons-codec:1.6'
+//////
+//////
+//////    implementation "com.google.appengine:appengine-remote-api:$appengineVersion"
+//////
+//////    providedCompile "javax.servlet:javax.servlet-api:3.0.1"
+//////    providedCompile "com.google.appengine:appengine-api-1.0-sdk:$appengineVersion"
+////}
+//
+//
+//
+//
+//
+//
+//buildscript {
+//    repositories {
+//        mavenCentral()
+//    }
+//
+//    dependencies {
+//        classpath 'com.google.cloud.tools:appengine-gradle-plugin:1.3.5'
+//    }
+//}
+//
+//plugins {
+//    id 'java'
+//    id 'war'
+//    id 'org.springframework.boot' version '2.7.8'
+//    id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+//}
+//
+//// If the appengineVersion variable is not set, then set it to a default
+//if (!project.hasProperty('appengineVersion')) {
+//    ext.appengineVersion = '2.0.4'
+//}
+//
+//
+//group = 'com.universeprojects.cachedatastore'
+//version = '0.0.1-SNAPSHOT'
+//sourceCompatibility = 11
+//targetCompatibility = 11
+//
+//
+//configurations {
+//    compileOnly {
+//        extendsFrom annotationProcessor
+//    }
+//}
+//
+//repositories {
+//    jcenter()
+//    mavenCentral()
+//    maven {
+//        url "https://nexus.nik.universeprojects.com/repository/maven-public/"
+//    }
+//}
+//
+//ext {
+//    set('springCloudGcpVersion', "3.4.2")
+//    set('springCloudVersion', "2021.0.5")
+//}
+//
+//dependencies {
+//    implementation 'commons-codec:commons-codec:1.6'
+//    implementation 'org.springframework.boot:spring-boot-starter-web'
+//    implementation 'org.springframework.boot:spring-boot-devtools'
+//    implementation 'com.google.cloud:spring-cloud-gcp-starter'
+//
+//    // This allows us to use the legacy appengine SDK
+//    implementation 'com.google.appengine:appengine-api-1.0-sdk:2.0.4'
+//
+//    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+//    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+//}
+//
+//dependencyManagement {
+//    imports {
+//        mavenBom "com.google.cloud:spring-cloud-gcp-dependencies:${springCloudGcpVersion}"
+//        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+//    }
+//}
+//
+//tasks.named('test') {
+//    useJUnitPlatform()
+//}
+//
+//rootProject.ext {
+//    appengineVersion = "2.0.4"
+//}
+
+
+
+plugins {
+    id 'java-library'
+}
+
+repositories {
+    jcenter()
+    mavenCentral()
+    maven {
+        url "https://nexus.nik.universeprojects.com/repository/maven-public/"
+    }
+}
+
+dependencies {
+    implementation 'commons-codec:commons-codec:1.6'
+
+    // This allows us to use the legacy appengine SDK
+    implementation 'com.google.appengine:appengine-api-1.0-sdk:2.0.4'
+}
+
+group = 'com.universeprojects.cachedatastore'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = 11
+targetCompatibility = 11
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Cached Datastore',
+                'Implementation-Version': project.version
+    }
+}
