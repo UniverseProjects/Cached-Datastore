@@ -110,7 +110,7 @@ dependencies {
     implementation 'commons-codec:commons-codec:1.6'
 
     // This allows us to use the legacy appengine SDK
-    implementation 'com.google.appengine:appengine-api-1.0-sdk:2.0.4'
+    implementation 'com.google.appengine:appengine-api-1.0-sdk:2.0.12'
 }
 
 group = 'com.universeprojects.cachedatastore'
