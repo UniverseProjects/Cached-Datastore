@@ -183,8 +183,6 @@ public class CachedDatastoreService
 	 * Copies all the field values from one entity over to another making 
 	 * sure that the field values on both entities are exactly the same with no extra fields left over.
 	 * 
-	 * @param characterToDie
-	 * @param characterToDieFinal
 	 */
 	public static void copyFieldValues(Entity from, Entity to)
 	{
