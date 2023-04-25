@@ -304,7 +304,7 @@ public class CachedDatastoreService
 		instanceCache.putAll(map);
 	}
 	
-	private void putEntityToMemcache(Entity entity)
+	public void putEntityToMemcache(Entity entity)
 	{
 		putToMemcache(mcPrefix+entity.getKey().toString(), entity);
 	}
