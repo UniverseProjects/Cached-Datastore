@@ -303,8 +303,13 @@ public class CachedDatastoreService
 			map.put(mcPrefix+entity.getKey().toString(), new InstanceCacheWrapper(entity, expiry));
 		instanceCache.putAll(map);
 	}
-	
-	public void putEntityToMemcache(Entity entity)
+
+	public void putEntityToMemcacheOnly(CachedEntity entity)
+	{
+		putEntityToMemcache(entity.getEntity());
+	}
+
+	private void putEntityToMemcache(Entity entity)
 	{
 		putToMemcache(mcPrefix+entity.getKey().toString(), entity);
 	}
