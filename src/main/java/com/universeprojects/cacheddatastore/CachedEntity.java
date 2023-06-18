@@ -394,4 +394,16 @@ public class CachedEntity extends PropertyContainerWrapper implements Cloneable,
 	{
 		return getProperties();
 	}
+
+	public void refetch_fromMemcache(CachedDatastoreService ds) {
+		if (ds==null) return;
+
+		Entity entity = ds.getEntityFromMemcache(this.getKey());
+		if (entity != null) {
+			this.entity = entity;
+			this.unsavedChanges = false;
+		} else {
+			refetch(ds);
+		}
+	}
 }

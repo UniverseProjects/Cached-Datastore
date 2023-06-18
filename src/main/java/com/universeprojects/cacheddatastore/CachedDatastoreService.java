@@ -956,7 +956,7 @@ public class CachedDatastoreService
 		
 		if (cacheEnabled && isTransactionActive()==false)
 		{
-			result = CachedEntity.wrap((Entity)mc.get(mcPrefix+entityKey.toString()));
+			result = CachedEntity.wrap(getEntityFromMemcache(entityKey));
 			if (result==null)
 			{
 				result = CachedEntity.wrap(db.get(entityKey));
@@ -991,6 +991,10 @@ public class CachedDatastoreService
 		
 //		addEntityValuesToOldEntityValuesMap(result);	// So we can keep track of changes made to the fields on this entity
 		return result;
+	}
+
+	Entity getEntityFromMemcache(Key entityKey) {
+		return (Entity) mc.get(mcPrefix + entityKey.toString());
 	}
 
 	public List<CachedEntity> get(Iterable<Key> keys)
@@ -2297,8 +2301,4 @@ public class CachedDatastoreService
 		
 		mc.delete(key);
 	}
-	
-	
-	
-	
 }
