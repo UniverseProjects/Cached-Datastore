@@ -848,6 +848,13 @@ public class CachedDatastoreService
 		
 		return getIfExists(KeyFactory.createKey(kind, id));
 	}
+
+	public CachedEntity getIfExists(String kind, String keyName) {
+		if (keyName==null)
+			return null;
+
+		return getIfExists(KeyFactory.createKey(kind, keyName));
+	}
 	
 	public CachedEntity getIfExists(Key entityKey)
 	{
