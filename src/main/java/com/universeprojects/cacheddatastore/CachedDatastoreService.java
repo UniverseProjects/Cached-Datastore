@@ -43,6 +43,10 @@ import com.google.appengine.api.utils.SystemProperty;
 
 public class CachedDatastoreService
 {
+	final public static Serializable NULL_OBJECT = new Serializable() {
+	    private static final long serialVersionUID = 1L;
+	};
+
 	private Logger log = Logger.getLogger(this.getClass().toString());	
 	private static ConcurrentHashMap<String,InstanceCacheWrapper> instanceCache = new ConcurrentHashMap<String,InstanceCacheWrapper>();
 	
@@ -62,7 +66,7 @@ public class CachedDatastoreService
 	final public static String QUERYKEYCACHE_DB_ENTITIES = "Stats_MC_QUERYKEYCACHE_DB_ENTITIES";
 	
 	final public String mcPrefix = "MCENTITY"; 
-	boolean cacheEnabled = true;
+	boolean cacheEnabled = System.getenv("CDS_CACHE_ENABLED") != null ? Boolean.parseBoolean(System.getenv("CDS_CACHE_ENABLED")) : true;
 	boolean queryModelCacheEnabled = false;
 	
 	Set<CachedEntity> entitiesToBulkPut = new HashSet<CachedEntity>();
@@ -246,6 +250,10 @@ public class CachedDatastoreService
 		return instanceCache;
 	}
 	
+	public DatastoreService getDS() {
+		return db;
+	}
+	
 	public MemcacheService getMC()
 	{
 		if (mc!=null)
@@ -319,8 +327,20 @@ public class CachedDatastoreService
 		putToMemcache(map);
 	}
 
-	private void putToMemcache(Object key, Object value) {
+	public Object getFromMemcache(Object key) {
+		Object val = mc.get(key);
+		
+		if (val == NULL_OBJECT) return null;
+		
+		return val;
+	}
+	
+	public void putToMemcache(Object key, Object value) {
 		try {
+			if (value == null) {
+				mc.put(key, NULL_OBJECT);
+				return;
+			} 
 			mc.put(key, value);
 		} catch (Throwable ex) {
 			try {
@@ -332,8 +352,12 @@ public class CachedDatastoreService
 		}
 	}
 
-	private void putToMemcache(Object key, Object value, Expiration expiration) {
+	public void putToMemcache(Object key, Object value, Expiration expiration) {
 		try {
+			if (value == null) {
+				mc.put(key, NULL_OBJECT, expiration);
+				return;
+			} 
 			mc.put(key, value, expiration);
 		} catch (Throwable ex) {
 			try {
@@ -346,8 +370,12 @@ public class CachedDatastoreService
 	}
 
 	@SuppressWarnings("SameParameterValue")
-	private boolean putToMemcache(Object key, Object value, Expiration expiration, SetPolicy setPolicy) {
+	public boolean putToMemcache(Object key, Object value, Expiration expiration, SetPolicy setPolicy) {
 		try {
+			if (value == null) {
+				return mc.put(key, NULL_OBJECT, expiration, setPolicy);
+			} 
+
 			return mc.put(key, value, expiration, setPolicy);
 		} catch (Throwable ex) {
 			try {
@@ -359,9 +387,13 @@ public class CachedDatastoreService
 		}
 	}
 
-	private boolean putToMemcacheIfUntouched(Object key, IdentifiableValue identifiableValue, Object valse) {
+	public boolean putToMemcacheIfUntouched(Object key, IdentifiableValue identifiableValue, Object value) {
 		try {
-			return mc.putIfUntouched(key, identifiableValue, valse);
+			if (value == null) {
+				return mc.putIfUntouched(key, identifiableValue, NULL_OBJECT);
+			} 
+
+			return mc.putIfUntouched(key, identifiableValue, value);
 		} catch (Throwable ex) {
 			try {
 				mc.delete(key);
@@ -372,7 +404,7 @@ public class CachedDatastoreService
 		}
 	}
 
-	private void putToMemcache(Map<?, ?> map) {
+	public void putToMemcache(Map<?, ?> map) {
 		try {
 			mc.putAll(map);
 		} catch (Throwable ex) {
@@ -822,7 +854,7 @@ public class CachedDatastoreService
 				throw new ConcurrentModificationException("The "+realEntity.getKey()+" entity was attempting to save after only "+timePassed+"ms. There must be at least a "+globalConcurrentModificationDelayMS+"ms delay between saves of any entity.");
 		}
 			
-		realEntity.setIndexedProperty("_modifiedDate", new Date());
+		realEntity.setProperty("_modifiedDate", new Date());
 		
 	}
 
@@ -953,7 +985,7 @@ public class CachedDatastoreService
 		
 		if (cacheEnabled && isTransactionActive()==false)
 		{
-			result = CachedEntity.wrap((Entity)mc.get(mcPrefix+entityKey.toString()));
+			result = CachedEntity.wrap((Entity)getFromMemcache(mcPrefix+entityKey.toString()));
 			if (result==null)
 			{
 				result = CachedEntity.wrap(db.get(entityKey));
@@ -1622,7 +1654,7 @@ public class CachedDatastoreService
 	
 	protected Long incrementStat(String statKey, long amount, Long initialValue, int expirySeconds)
 	{
-		Long previousValue = (Long)mc.get(statKey);
+		Long previousValue = (Long)getFromMemcache(statKey);
 		if (previousValue==null)
 		{
 			if (initialValue==null)
@@ -1673,12 +1705,12 @@ public class CachedDatastoreService
 	
 	public Long getStat(String statKey)
 	{
-		return (Long)mc.get(statKey);
+		return (Long)getFromMemcache(statKey);
 	}
 
 	public Double getStatDouble(String statKey)
 	{
-		return (Double)mc.get(statKey);
+		return (Double)getFromMemcache(statKey);
 	}
 
 	public void clearStats() {
@@ -1911,7 +1943,7 @@ public class CachedDatastoreService
 	 */
 	public boolean flagActionLimiter(String actionName, int periodInSeconds, long maximumActions, Integer penaltyDuration)
 	{
-		Long counter = (Long)mc.get("actionLimiter-"+actionName);
+		Long counter = (Long)getFromMemcache("actionLimiter-"+actionName);
 		if (counter==null)
 		{
 			putToMemcache("actionLimiter-"+actionName, maximumActions, Expiration.byDeltaSeconds(periodInSeconds));
@@ -1935,7 +1967,7 @@ public class CachedDatastoreService
 	
 	public boolean isActionLimited(String actionName)
 	{
-		Long counter = (Long)mc.get("actionLimiter-"+actionName);
+		Long counter = (Long)getFromMemcache("actionLimiter-"+actionName);
 		if (counter==null || counter>0l)
 			return true;
 		
@@ -1966,12 +1998,12 @@ public class CachedDatastoreService
 		if (key==null) throw new IllegalArgumentException("key cannot be null.");
 		if (backups<0 || backups>=5) throw new IllegalArgumentException("Backup count must be between 0 and 4.");
 		
-		SaferMCValueWrapper wrappedValue = (SaferMCValueWrapper)mc.get(key);
+		SaferMCValueWrapper wrappedValue = (SaferMCValueWrapper)getFromMemcache(key);
 		if (wrappedValue==null)
 			for(int i = 0; i<backups; i++)
 			{
 				
-				wrappedValue = (SaferMCValueWrapper)mc.get(key+"-backup#"+i);
+				wrappedValue = (SaferMCValueWrapper)getFromMemcache(key+"-backup#"+i);
 				if (wrappedValue!=null)
 					break;
 			}
@@ -2108,7 +2140,7 @@ public class CachedDatastoreService
 //	private Set<String> getQueryModelIdsFor(String qmfKey)
 //	{
 //		@SuppressWarnings("unchecked")
-//		Set<String> queryModels = (Set<String>)mc.get(qmfKey);
+//		Set<String> queryModels = (Set<String>)getFromMemcache(qmfKey);
 //		if (queryModels==null)
 //			queryModels = new HashSet<String>();
 //		
@@ -2167,7 +2199,7 @@ public class CachedDatastoreService
 	}
 	public Set<Object> getSet_MC(String key)
 	{
-		Set<Object> set = (Set<Object>)mc.get(key);
+		Set<Object> set = (Set<Object>)getFromMemcache(key);
 		return set;
 	}
 	
