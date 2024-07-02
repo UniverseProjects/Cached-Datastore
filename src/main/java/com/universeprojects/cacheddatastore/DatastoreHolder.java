@@ -15,10 +15,5 @@ public class DatastoreHolder {
         DatastoreHolder.datastore.remove();
     }
 
-    private static ThreadLocal<CachedDatastoreService> datastore = new ThreadLocal<CachedDatastoreService>() {
-        @Override
-        protected CachedDatastoreService initialValue() {
-            return new CachedDatastoreService();
-        }
-    };
+    private static final ThreadLocal<CachedDatastoreService> datastore = ThreadLocal.withInitial(CachedDatastoreService::new);
 }
