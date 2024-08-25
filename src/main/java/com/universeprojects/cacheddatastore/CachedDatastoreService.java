@@ -39,7 +39,29 @@ import com.google.appengine.api.memcache.MemcacheService.IdentifiableValue;
 import com.google.appengine.api.memcache.MemcacheService.SetPolicy;
 import com.google.appengine.api.memcache.MemcacheServiceFactory;
 import com.google.appengine.api.utils.SystemProperty;
+import com.universeprojects.cacheddatastore.CachedDatastoreService.CDSIterable;
+import com.universeprojects.cacheddatastore.CachedDatastoreService.CDSIterable.CDSIterator;
+import com.universeprojects.cacheddatastore.CachedDatastoreService.EntityNotFetchedWithinTransactionException;
 
+
+class ExpiringObject implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final Object value;
+    private final long expirationTime;
+
+    public ExpiringObject(Object value, long expirationTimeMillis) {
+        this.value = value;
+        this.expirationTime = System.currentTimeMillis() + expirationTimeMillis;
+    }
+
+    public boolean isExpired() {
+        return System.currentTimeMillis() > expirationTime;
+    }
+
+    public Object getValue() {
+        return value;
+    }
+}
 
 public class CachedDatastoreService
 {
@@ -327,13 +349,22 @@ public class CachedDatastoreService
 		putToMemcache(map);
 	}
 
-	public Object getFromMemcache(Object key) {
-		Object val = mc.get(key);
-		
-		if (val == NULL_OBJECT) return null;
-		
-		return val;
-	}
+    public Object getFromMemcache(Object key) {
+        Object val = mc.get(key);
+        
+        if (val == NULL_OBJECT) return null;
+        
+        if (val instanceof ExpiringObject) {
+            ExpiringObject expiringObject = (ExpiringObject) val;
+            if (expiringObject.isExpired()) {
+                mc.delete(key);
+                return null;
+            }
+            return expiringObject.getValue();
+        }
+        
+        return val;
+    }
 	
 	public void putToMemcache(Object key, Object value) {
 		try {
@@ -353,30 +384,17 @@ public class CachedDatastoreService
 	}
 
 	public void putToMemcache(Object key, Object value, Expiration expiration) {
-		try {
-			if (value == null) {
-				mc.put(key, NULL_OBJECT, expiration);
-				return;
-			} 
-			mc.put(key, value, expiration);
-		} catch (Throwable ex) {
-			try {
-				mc.delete(key);
-			} catch (Throwable ex2) {
-				log.log(Level.SEVERE, "Error when deleting memcache entry", ex2);
-			}
-			throw ex;
-		}
+		long expirationMillis = expiration.getMillisecondsValue();
+		ExpiringObject expiringObject = new ExpiringObject(value, expirationMillis);
+		putToMemcache(key, expiringObject);
 	}
 
 	@SuppressWarnings("SameParameterValue")
 	public boolean putToMemcache(Object key, Object value, Expiration expiration, SetPolicy setPolicy) {
+		long expirationMillis = expiration.getMillisecondsValue();
+		ExpiringObject expiringObject = new ExpiringObject(value, expirationMillis);
 		try {
-			if (value == null) {
-				return mc.put(key, NULL_OBJECT, expiration, setPolicy);
-			} 
-
-			return mc.put(key, value, expiration, setPolicy);
+			return mc.put(key, expiringObject, null, setPolicy);
 		} catch (Throwable ex) {
 			try {
 				mc.delete(key);
@@ -392,7 +410,6 @@ public class CachedDatastoreService
 			if (value == null) {
 				return mc.putIfUntouched(key, identifiableValue, NULL_OBJECT);
 			} 
-
 			return mc.putIfUntouched(key, identifiableValue, value);
 		} catch (Throwable ex) {
 			try {

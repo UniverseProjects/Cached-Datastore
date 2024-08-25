@@ -1,9 +1,7 @@
 package com.universeprojects.cacheddatastore;
 
-import java.time.Duration;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.memcache.Expiration;
@@ -21,12 +19,21 @@ public class CachedQueryService {
 		this.query = query;
 	}
 	
-	private String cachedQueryKey(Object...components) {
-		List<String> list = Arrays.stream(components)
-				.map(el -> el != null ? el.toString() : "null")
-				.collect(Collectors.toList());
-		
-		return CACHED_QUERY_MC_KEY + String.join(CACHED_QUERY_COMPONENT_SEPARATOR, list);
+	private String cachedQueryKey(Object... components) {
+	    List<String> list = new ArrayList<String>();
+	    for (Object component : components) {
+	        list.add(component != null ? component.toString() : "null");
+	    }
+
+	    StringBuilder joinedString = new StringBuilder();
+	    for (int i = 0; i < list.size(); i++) {
+	        joinedString.append(list.get(i));
+	        if (i < list.size()) {
+	            joinedString.append(CACHED_QUERY_COMPONENT_SEPARATOR);
+	        }
+	    }
+
+	    return CACHED_QUERY_MC_KEY + joinedString.toString();
 	}
 	
 	private List<Key> getCachedQuery(String cachedQueryKey) {
