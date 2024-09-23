@@ -21,22 +21,8 @@ public class CachedMemcacheService implements MemcacheService {
         this.memcacheService = memcacheService;
     }
 
-    private static class CachedIdentifiableValue implements IdentifiableValue {
-        private final IdentifiableValue wrappedValue;
-
-        public CachedIdentifiableValue(IdentifiableValue wrappedValue) {
-            this.wrappedValue = wrappedValue;
-        }
-
-        @Override
-        public Object getValue() {
-            return unwrap(wrappedValue.getValue());
-        }
-
-    }
-
     private static class CachedObject implements Serializable {
-        private final Object value;
+		private final Object value;
         private final Date expiryDate;
 
         public CachedObject(Object value, Expiration expiration) {
@@ -61,9 +47,16 @@ public class CachedMemcacheService implements MemcacheService {
     private static Object unwrap(Object cachedObject) {
         if (cachedObject instanceof CachedObject) {
             CachedObject co = (CachedObject) cachedObject;
-            return co.isExpired() ? null : co.getValue();
+            if (co.isExpired()) {
+                return null;
+            }
+            return co.getValue();
         }
         return cachedObject;
+    }
+
+    private void removeExpiredEntry(Object key) {
+        memcacheService.put(key, null);
     }
 
     @Override
@@ -73,21 +66,23 @@ public class CachedMemcacheService implements MemcacheService {
 
     @Override
     public Object get(Object key) {
-        return unwrap(memcacheService.get(key));
+        Object result = memcacheService.get(key);
+        Object unwrapped = unwrap(result);
+        if (result instanceof CachedObject && unwrapped == null) {
+            removeExpiredEntry(key);
+        }
+        return unwrapped;
     }
 
     @Override
     public IdentifiableValue getIdentifiable(Object key) {
         IdentifiableValue iv = memcacheService.getIdentifiable(key);
-        return iv != null ? new CachedIdentifiableValue(iv) : null;
+        return iv;
     }
 
     @Override
     public <T> Map<T, IdentifiableValue> getIdentifiables(Collection<T> keys) {
         Map<T, IdentifiableValue> result = memcacheService.getIdentifiables(keys);
-        for (Map.Entry<T, IdentifiableValue> entry : result.entrySet()) {
-            entry.setValue(new CachedIdentifiableValue(entry.getValue()));
-        }
         return result;
     }
 
@@ -101,7 +96,11 @@ public class CachedMemcacheService implements MemcacheService {
     public <T> Map<T, Object> getAll(Collection<T> keys) {
         Map<T, Object> result = memcacheService.getAll(keys);
         for (Map.Entry<T, Object> entry : result.entrySet()) {
-            entry.setValue(unwrap(entry.getValue()));
+            Object unwrapped = unwrap(entry.getValue());
+            if (entry.getValue() instanceof CachedObject && unwrapped == null) {
+                removeExpiredEntry(entry.getKey());
+            }
+            entry.setValue(unwrapped);
         }
         return result;
     }
@@ -145,13 +144,13 @@ public class CachedMemcacheService implements MemcacheService {
     }
 
     @Override
-    public boolean putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue, Expiration expiration) {
-        return memcacheService.putIfUntouched(key, oldValue.getValue(), wrap(newValue, expiration));
+    public boolean putIfUntouched(Object key, IdentifiableValue identifiableForPreviousValue, Object newValue, Expiration expiration) {
+        return memcacheService.putIfUntouched(key, identifiableForPreviousValue, wrap(newValue, expiration));
     }
 
     @Override
     public boolean putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue) {
-        return putIfUntouched(key, oldValue.getValue(), newValue, null);
+        return putIfUntouched(key, (IdentifiableValue) oldValue.getValue(), newValue, null);
     }
 
     @Override
@@ -161,6 +160,7 @@ public class CachedMemcacheService implements MemcacheService {
 
     @Override
     public <T> Set<T> putIfUntouched(Map<T, CasValues> values, Expiration expiration) {
+    	//TODO: This is probably not implemented right, but who knows, i'm not using it atm
         Map<T, CasValues> wrappedValues = new HashMap<>();
         for (Map.Entry<T, CasValues> entry : values.entrySet()) {
             CasValues casValues = entry.getValue();
@@ -191,12 +191,18 @@ public class CachedMemcacheService implements MemcacheService {
 
     @Override
     public Long increment(Object key, long delta) {
-        return memcacheService.increment(key, delta);
+    	return increment(key, delta, 0L);
     }
 
     @Override
     public Long increment(Object key, long delta, Long initialValue) {
-        return memcacheService.increment(key, delta, initialValue);
+    	Object oldValue = get(key);
+    	if (oldValue == null || !(oldValue instanceof Long)) {
+    		oldValue = initialValue;
+    	}
+    	Long newValue = ((Long) oldValue) + delta;
+        memcacheService.put(key, newValue);
+        return newValue;
     }
 
     @Override
