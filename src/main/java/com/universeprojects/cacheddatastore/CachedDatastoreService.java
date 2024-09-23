@@ -241,28 +241,6 @@ public class CachedDatastoreService
 	
 	public CachedDatastoreService()
 	{
-//		if (isUsingRemoteAPI())
-//		{
-//			
-//			if (options==null)
-//				options = new RemoteApiOptions().server(System.getProperty("remoteAPIServer"), 443).useApplicationDefaultCredential();			
-//			try
-//			{
-//				RemoteApiInstaller installer = new RemoteApiInstaller();
-//				installer.install(options);
-//			}
-//			catch(IllegalStateException ise)
-//			{
-//				// Ignore. Remote API is probably already installed
-//			}
-//			catch(Exception e)
-//			{
-//				// Ok fine, no remote API
-//				disableRemoteAPI=true;
-//				Logger.getLogger(CachedDatastoreService.class.toString()).log(Level.WARNING, "Failed to connect to remote API", e);
-//			}
-//		}
-		
 		db = DatastoreServiceFactory.getDatastoreService();
 		mc = getMC();
 	}
@@ -281,31 +259,7 @@ public class CachedDatastoreService
 		if (mc!=null)
 			return mc;
 		
-//		if (isUsingRemoteAPI())
-//		{
-//			try
-//			{
-////				Properties p = new Properties();
-////				InputStream in = new FileInputStream("C:\\Universe (Non Repo)\\MySpacewarConfig\\db.properties");
-////				p.load(in);
-////				in.close();
-//		
-//				RemoteApiInstaller installer = new RemoteApiInstaller();
-//				installer.install(options);
-//			}
-//			catch(IllegalStateException ise)
-//			{
-//				// Ignore. Remote API is probably already installed
-//			}
-//			catch(Exception e)
-//			{
-//				// Ok fine, no remote API
-//				disableRemoteAPI=true;
-//				Logger.getLogger(getClass().toString()).log(Level.WARNING, "Failed to connect to remote API", e);
-//			}
-//		}
-
-		mc = MemcacheServiceFactory.getMemcacheService();
+		mc = new CachedMemcacheService(MemcacheServiceFactory.getMemcacheService());
 		return mc;
 	}
 
