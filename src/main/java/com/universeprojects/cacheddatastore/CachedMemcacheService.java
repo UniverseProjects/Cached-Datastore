@@ -146,12 +146,12 @@ public class CachedMemcacheService implements MemcacheService {
 
     @Override
     public boolean putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue, Expiration expiration) {
-        return memcacheService.putIfUntouched(key, oldValue, wrap(newValue, expiration));
+        return memcacheService.putIfUntouched(key, oldValue.getValue(), wrap(newValue, expiration));
     }
 
     @Override
     public boolean putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue) {
-        return putIfUntouched(key, oldValue, newValue, null);
+        return putIfUntouched(key, oldValue.getValue(), newValue, null);
     }
 
     @Override
