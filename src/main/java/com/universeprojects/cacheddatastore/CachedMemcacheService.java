@@ -21,8 +21,29 @@ public class CachedMemcacheService implements MemcacheService {
         this.memcacheService = memcacheService;
     }
 
+    private static class CachedIdentifiableValue implements IdentifiableValue {
+    	final IdentifiableValue iv;
+    	
+    	public CachedIdentifiableValue(IdentifiableValue iv) {
+    		if (iv instanceof CachedIdentifiableValue) throw new IllegalArgumentException("Cannot be a CachedIdentifiableValue");
+    		this.iv = iv;
+    	}
+    	
+    	public Object getValue() {
+    		if (this.iv == null) return null;
+    		if (this.iv.getValue() instanceof CachedObject) {
+    			return ((CachedObject)this.iv.getValue()).getValue();
+    		}
+    		return this.iv.getValue();
+    	}
+    	
+    	public IdentifiableValue getIdentifiableProper() {
+    		return iv;
+    	}
+    }
+    
     private static class CachedObject implements Serializable {
-		private final Object value;
+		Object value;
         private final Date expiryDate;
 
         public CachedObject(Object value, Expiration expiration) {
@@ -77,12 +98,18 @@ public class CachedMemcacheService implements MemcacheService {
     @Override
     public IdentifiableValue getIdentifiable(Object key) {
         IdentifiableValue iv = memcacheService.getIdentifiable(key);
-        return iv;
+        if (iv == null || iv.getValue() == null) return null;
+        return new CachedIdentifiableValue(iv);
     }
 
     @Override
     public <T> Map<T, IdentifiableValue> getIdentifiables(Collection<T> keys) {
-        Map<T, IdentifiableValue> result = memcacheService.getIdentifiables(keys);
+    	//TODO: Not used and probably not implemented right
+        Map<T, IdentifiableValue> properIdentifiables = memcacheService.getIdentifiables(keys);
+        Map<T, IdentifiableValue> result = new HashMap<>();
+        for (Map.Entry<T, IdentifiableValue> entry : properIdentifiables.entrySet()) {
+            result.put(entry.getKey(), new CachedIdentifiableValue(entry.getValue()));
+        }
         return result;
     }
 
@@ -145,12 +172,15 @@ public class CachedMemcacheService implements MemcacheService {
 
     @Override
     public boolean putIfUntouched(Object key, IdentifiableValue identifiableForPreviousValue, Object newValue, Expiration expiration) {
+    	if (identifiableForPreviousValue instanceof CachedIdentifiableValue) {
+    		identifiableForPreviousValue = ((CachedIdentifiableValue) identifiableForPreviousValue).getIdentifiableProper();
+    	}
         return memcacheService.putIfUntouched(key, identifiableForPreviousValue, wrap(newValue, expiration));
     }
 
     @Override
     public boolean putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue) {
-        return putIfUntouched(key, (IdentifiableValue) oldValue.getValue(), newValue, null);
+        return putIfUntouched(key, oldValue, newValue, null);
     }
 
     @Override
@@ -196,12 +226,20 @@ public class CachedMemcacheService implements MemcacheService {
 
     @Override
     public Long increment(Object key, long delta, Long initialValue) {
-    	Object oldValue = get(key);
+    	Long oldValue = (Long) get(key);
+    	CachedObject oldValueWrapper = (CachedObject) memcacheService.get(key);
     	if (oldValue == null || !(oldValue instanceof Long)) {
     		oldValue = initialValue;
     	}
+    	
     	Long newValue = ((Long) oldValue) + delta;
-        memcacheService.put(key, newValue);
+    	if (oldValueWrapper == null) 
+    		oldValueWrapper = new CachedObject(newValue, null);
+    	else 
+    		oldValueWrapper.value = newValue;
+    	
+        memcacheService.put(key, oldValueWrapper);
+        
         return newValue;
     }
 

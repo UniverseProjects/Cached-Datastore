@@ -39,29 +39,7 @@ import com.google.appengine.api.memcache.MemcacheService.IdentifiableValue;
 import com.google.appengine.api.memcache.MemcacheService.SetPolicy;
 import com.google.appengine.api.memcache.MemcacheServiceFactory;
 import com.google.appengine.api.utils.SystemProperty;
-import com.universeprojects.cacheddatastore.CachedDatastoreService.CDSIterable;
-import com.universeprojects.cacheddatastore.CachedDatastoreService.CDSIterable.CDSIterator;
-import com.universeprojects.cacheddatastore.CachedDatastoreService.EntityNotFetchedWithinTransactionException;
 
-
-class ExpiringObject implements Serializable {
-    private static final long serialVersionUID = 1L;
-    private final Object value;
-    private final long expirationTime;
-
-    public ExpiringObject(Object value, long expirationTimeMillis) {
-        this.value = value;
-        this.expirationTime = System.currentTimeMillis() + expirationTimeMillis;
-    }
-
-    public boolean isExpired() {
-        return System.currentTimeMillis() > expirationTime;
-    }
-
-    public Object getValue() {
-        return value;
-    }
-}
 
 public class CachedDatastoreService
 {
@@ -308,15 +286,6 @@ public class CachedDatastoreService
         
         if (val == NULL_OBJECT) return null;
         
-        if (val instanceof ExpiringObject) {
-            ExpiringObject expiringObject = (ExpiringObject) val;
-            if (expiringObject.isExpired()) {
-                mc.delete(key);
-                return null;
-            }
-            return expiringObject.getValue();
-        }
-        
         return val;
     }
 	
@@ -338,17 +307,13 @@ public class CachedDatastoreService
 	}
 
 	public void putToMemcache(Object key, Object value, Expiration expiration) {
-		long expirationMillis = expiration.getMillisecondsValue();
-		ExpiringObject expiringObject = new ExpiringObject(value, expirationMillis);
-		putToMemcache(key, expiringObject);
+		mc.put(key, value, expiration);
 	}
 
 	@SuppressWarnings("SameParameterValue")
 	public boolean putToMemcache(Object key, Object value, Expiration expiration, SetPolicy setPolicy) {
-		long expirationMillis = expiration.getMillisecondsValue();
-		ExpiringObject expiringObject = new ExpiringObject(value, expirationMillis);
 		try {
-			return mc.put(key, expiringObject, null, setPolicy);
+			return mc.put(key, value, expiration, setPolicy);
 		} catch (Throwable ex) {
 			try {
 				mc.delete(key);
